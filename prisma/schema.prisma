@@ -1,0 +1,54 @@
+generator client {
+  provider   = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// User model
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  name              String?
+  transactions      Transaction[]
+  monthlyAggregates MonthlyAggregate[]
+  createdAt         DateTime           @default(now())
+}
+
+// 1. Daily Input
+model Transaction {
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Float
+  type        TxType
+  title       String?
+  description String?
+  date        DateTime
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, date])
+}
+
+// 2. Monthly Aggregate
+model MonthlyAggregate {
+  id             String @id @default(cuid())
+  userId         String
+  month          Int
+  year           Int
+  totalPrimary   Float  @default(0)
+  totalSecondary Float  @default(0)
+  totalIncome    Float  @default(0)
+  totalProfit    Float  @default(0)
+  user           User   @relation(fields: [userId], references: [id])
+
+  @@unique([userId, month, year])
+}
+
+enum TxType {
+  PRIMARY
+  SECONDARY
+  INCOME
+}
