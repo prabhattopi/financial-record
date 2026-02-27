@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma"
 import { auth, currentUser } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
+import { Prisma } from "@prisma/client" // <--- 1. Import this
 
 export async function addTransaction(formData: FormData) {
   // 1. Get the real authenticated user
@@ -25,11 +26,12 @@ export async function addTransaction(formData: FormData) {
   const email = user.emailAddresses[0].emailAddress
 
   // 3. Database Transaction (Secure & Optimized)
-  await prisma.$transaction(async (tx) => {
+  // FIX: Explicitly type 'tx' as Prisma.TransactionClient
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     
     // A. Ensure User exists in OUR database (Syncing Clerk ID with Prisma)
     await tx.user.upsert({
-      where: { id: userId }, // Use Clerk ID directly
+      where: { id: userId }, 
       update: {},
       create: { 
         id: userId, 
@@ -41,7 +43,7 @@ export async function addTransaction(formData: FormData) {
     // B. Save Daily Transaction
     await tx.transaction.create({
       data: {
-        userId: userId, // Linked to the specific user
+        userId: userId, 
         amount,
         type,
         title,
@@ -49,7 +51,7 @@ export async function addTransaction(formData: FormData) {
       }
     })
 
-    // C. Update Monthly Summary (For that specific user only)
+    // C. Update Monthly Summary
     const existingMonth = await tx.monthlyAggregate.findUnique({
       where: {
         userId_month_year: { userId, month, year }
@@ -84,7 +86,6 @@ export async function getDashboardData() {
 
   const today = new Date()
   
-  // Fetch data ONLY for this userId
   const monthlyStats = await prisma.monthlyAggregate.findUnique({
     where: {
       userId_month_year: {
